@@ -79,7 +79,9 @@ class DubbingSrt(BaseTask):
 
 
     def dubbing(self):
-        self.signal(text=Path(self.cfg.target_sub).read_text(encoding='utf-8'), type="replace")
+        # 多角色配音直接使用 subs，无需读取导入的字幕文件，它可能不是 UTF-8 编码
+        if not self.subs:
+            self.signal(text=Path(self.cfg.target_sub).read_text(encoding='utf-8'), type="replace")
         self._tts()
 
     # 字幕可能是gbk gb2312 等编码，需转为 utf-8
