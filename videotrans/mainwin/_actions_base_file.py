@@ -112,9 +112,10 @@ class WinActionBaseFileMixin:
                                                                 _title,
                                                                 params.get('last_opendir', ''),
                                                                 f'Files(*.srt *.ass)')
-        if srt_type=='spoken' and fname.endswith(".ass"):
-            _new=TEMP_ROOT+f"/from-ass-spoken-{time.time()}.srt"
-            ass_to_srt(fname,_new,True)
+        if fname.lower().endswith(".ass"):
+            # 发音语言字幕保留[说话人]标识，以便提取说话人；目标语言字幕直接用于配音，不加标识
+            _new=TEMP_ROOT+f"/from-ass-{srt_type}-{time.time()}.srt"
+            ass_to_srt(fname,_new,srt_type=='spoken')
             fname=_new
 
         if srt_type=='spoken':
