@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import codecs
 import os, json, re
 from datetime import timedelta
 from functools import lru_cache
@@ -261,12 +262,30 @@ def ass_to_srt(src_ass_file, dst_srt_file, get_speaker=False):
 
         return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
+    def ass_file_encoding(file):
+        """ASS 文件可能是 UTF-8、GBK 或带 BOM 的 UTF-16、UTF-32 编码
+
+        有 UTF-16 或 UTF-32 的 BOM 时按其读取；否则与 get_subtitle_from_srt 相同，先按 UTF-8（可带 BOM）读取，失败再按 GBK 读取
+        """
+        with open(file, "rb") as f:
+            raw = f.read()
+        # UTF-32 LE 的 BOM 以 UTF-16 LE 的 BOM 开头，需先判断
+        if raw.startswith((codecs.BOM_UTF32_LE, codecs.BOM_UTF32_BE)):
+            return "utf-32"
+        if raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+            return "utf-16"
+        try:
+            raw.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            return "gbk"
+        return "utf-8-sig"
+
     events = []
     in_events_section = False
     format_cols = []
 
     # 1. 解析 ASS 文件
-    with open(src_ass_file, "r", encoding="utf-8-sig") as f:
+    with open(src_ass_file, "r", encoding=ass_file_encoding(src_ass_file)) as f:
         for line in f:
             line = line.strip()
             if not line:
