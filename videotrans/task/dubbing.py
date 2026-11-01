@@ -29,7 +29,6 @@ class DubbingSrt(BaseTask):
     # 固定为True
     should_dubbing: bool = True
     ignore_align: bool = False
-    output_folder:str=None
     # 多角色配音时直接使用该字幕信息
     subs: List = field(default_factory=list, repr=False)
 
@@ -54,7 +53,7 @@ class DubbingSrt(BaseTask):
         isTrue = {True: tr("Selected"), False: tr("Not-Selected")}
 
         _msg.append(tr('From  Text  Into  Speech') + f' {tr("Multi voice dubbing for SRT") if self.is_multi_role else ""}')
-        _msg.append(f'{self.cfg.name=}, \n{tr("Output directory")}: {self.cfg.target_dir if not self.output_folder else self.output_folder},\n{self.cfg.cache_folder=}')
+        _msg.append(f'{self.cfg.name=}, \n{tr("Output directory")}: {self.cfg.target_dir},\n{self.cfg.cache_folder=}')
         _msg.append(f'{self.cfg.is_cuda=}')
         _msg.append(
             f"{tr('Dubbing channel')}:{get_tts_type(self.cfg.tts_type)}, {tr('Dubbing role')}:{self.cfg.voice_role}, {tr('Target lang')}:{self.cfg.target_language_code}")
@@ -262,6 +261,12 @@ class DubbingSrt(BaseTask):
         # txt配音并且是 edgetts，已结束
         if self.ignore_align: return
         from videotrans.util.help_ffmpeg import runffmpeg
+        target_path = Path(self.cfg.target_wav)
+        # 如果文件夹内存在同名，则添加时间后缀
+        # 只有一行时也需如此：保存到原位置时，字幕旁可能有同名的原音频
+        if target_path.is_file() and target_path.stat().st_size > 0:
+            self.cfg.target_wav = self.cfg.target_wav[
+                                  :-4] + f'-{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}{target_path.suffix}'
         # 只有一行
         if len(self.queue_tts) < 2:
             if len(self.queue_tts) == 1 and self.cfg.tts_type != tts.EDGE_TTS:
@@ -271,11 +276,6 @@ class DubbingSrt(BaseTask):
         if self.cfg.voice_autorate:
             self.signal(text=tr("Sound speed alignment stage"))
 
-        target_path = Path(self.cfg.target_wav)
-        # 如果文件夹内存在同名，则添加时间后缀
-        if target_path.is_file() and target_path.stat().st_size > 0:
-            self.cfg.target_wav = self.cfg.target_wav[
-                                  :-4] + f'-{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}{target_path.suffix}'
         from videotrans.task._rate import TtsSpeedRate
         rate_inst = TtsSpeedRate(
             queue_tts=self.queue_tts,
@@ -305,8 +305,7 @@ class DubbingSrt(BaseTask):
         if Path(self.cfg.target_wav).is_file():
             # 只移除末尾静音
             remove_silence_wav(self.cfg.target_wav, rm_start=False)
-            target_dir=self.cfg.target_dir if not self.output_folder else self.output_folder
-            _output= f'{target_dir}/{self.cfg.noextname}.{self.out_ext}'
+            _output= f'{self.cfg.target_dir}/{self.cfg.noextname}.{self.out_ext}'
             if self.out_ext.lower() != 'wav':
                 runffmpeg(
                     ['-y', '-i', self.cfg.target_wav,_output]
@@ -315,6 +314,4 @@ class DubbingSrt(BaseTask):
                     Path(self.cfg.target_wav).unlink(missing_ok=True)
                 except OSError:
                     pass
-            elif self.output_folder:
-                shutil.copy2(self.cfg.target_wav,_output)
         self.set_end(True)

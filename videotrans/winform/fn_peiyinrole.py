@@ -178,13 +178,14 @@ def openwin():
         else:
             RESULT_DIR = HOME_DIR + '/tts'
         video_obj:InputFile = format_video(winobj.srt_path, None)
+        # 与文字配音相同，输出目录设在 video_obj 上：cfg | video_obj 时以 video_obj 的值为准
+        video_obj['target_dir'] = RESULT_DIR
         uuid = video_obj['uuid']
         app_cfg.rm_uuid(uuid)
         cfg = {
             "voice_role": default_role,  # Default role
             "cache_folder": config.TEMP_DIR + f'/{uuid}',
             "target_language_code": langcode,
-            "target_dir": RESULT_DIR,
             "voice_rate": rate,
             "volume": volume,
             "uuid": uuid,
@@ -208,7 +209,6 @@ def openwin():
         trk = DubbingSrt(cfg=TaskCfgTTS(**cfg | video_obj),
                          subs=winobj.subtitles,
                          is_multi_role=True,
-                         output_folder=RESULT_DIR,
                          out_ext=winobj.out_format.currentText())
         app_cfg.dubb_queue.put_nowait(trk)
         from videotrans.task.child_win_sign import SignThread
